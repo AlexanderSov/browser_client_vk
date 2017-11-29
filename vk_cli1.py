@@ -8,6 +8,7 @@ chat with a friend (using a friend's ID).
 
 import getpass
 from multiprocessing import Process, Value
+import os
 
 import requests
 import vk
@@ -41,6 +42,31 @@ def change_photo(api):
                               photo=r.json()['photo'],
                               hash=r.json()['hash']
                               )
+
+
+def get_all_photo(api):
+    aim_id = input("Enter the user's ID")  # id the person of interest
+    photo_urls = []
+    all_photo = api.photos.get(owner_id=aim_id, album_id='saved',
+                               photo_sizes=1
+                               )
+    for i in all_photo:
+        photo_urls.append((i["pid"], i['sizes'][-1]['src']))
+    download_all_photo(url_list=photo_urls)
+
+
+def download_all_photo(url_list):
+    folder = input("Enter the path to the folder to save")
+    dir_fd = os.open(folder, os.O_RDONLY)
+
+    def opener(path, flags):
+        return os.open(path, flags, dir_fd=dir_fd)
+    for urls in url_list:
+        picture = requests.get(urls[1])
+        with open(str(urls[0]) + ".jpg", 'wb', opener=opener) as f:
+            f.write(picture.content)
+            f.close()
+    os.close(dir_fd)
 
 
 def read_news(api):
@@ -137,7 +163,7 @@ def get_poll(api, user_id):
             session_data['ts'] = r.json()['ts']
             output_server_answer(updates=r.json()['updates'], user_id=user_id)
             global list_of_message
-            if list_of_message != [] and input_state.value == False:
+            if list_of_message != [] and input_state.value is False:
                 for m in list_of_message:
                     print(m)
                 list_of_message = []
@@ -147,9 +173,10 @@ def get_poll(api, user_id):
 
 def main(choice=''):
     api = do_connection()
-    while choice != '4':
+    while choice != '5':
         print("1. Change photo", "2. Read news",
-              "3. Write massege", "4. Exit", sep='\n'
+              "3. Write massege", "4. Download all photo",
+              "5. Exit", sep='\n'
               )
         choice = input("Enter number: ")
         if choice == '1':
@@ -164,6 +191,8 @@ def main(choice=''):
             sleep(1.5)
             t1.start()
             t1.join()
+        elif choice == '4':
+            get_all_photo(api)
 
 
 if __name__ == '__main__':
